@@ -45,6 +45,31 @@ class ConfluenceInterface:
         title = re.sub(r'[ _:-]', '', page_data['title'])
         return url + f'#id-{title}-{text}'
 
+    def get_spaces(self) -> set[str]:
+        response = self.make_request('space?limit=100')
+        return {x['key'] for x in response['results']}
+
+    def get_page_body(self, page_id: str) -> str:
+        response = self.make_request(f'content/{page_id}?expand=body.storage')
+        return response["body"]["storage"]["value"]
+
+    def get_page_list_for_space(self, space_key: str) -> list[str]:
+
+        page_list = []
+        response = {
+            '_links': {
+                'next': f'/rest/api/content/scan?spaceKey={space_key}'
+            }
+        }
+        while '_links' in response and 'next' in response['_links'] and response['_links']['next'] is not None:
+            url = response['_links']['next'][10:]
+            response = self.make_request(url)
+            page_list.extend([
+                page['id']
+                for page in response['results']
+            ])
+        return page_list
+
     def get_task_frame(self, page_ids: List[str]) -> pd.DataFrame:
         task_data = {}
         user_cache = UserCache(self)
